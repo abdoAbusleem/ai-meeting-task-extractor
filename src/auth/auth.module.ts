@@ -1,20 +1,36 @@
 import { Module } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { StringValue } from 'ms';
 
-import { AuthService } from './auth.service';
+import jwtConfig from '../config/jwt.config';
+import { PrismaModule } from '../prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
 import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 import { BcryptService } from './bcrypt.service';
-import { User } from '../users/entities/user.entity';
-import jwtConfig from '../common/config/jwt.config';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
-    JwtModule.registerAsync(jwtConfig.asProvider()),
+    PrismaModule,
+    RedisModule,
+    JwtModule.registerAsync({
+      inject: [jwtConfig.KEY],
+      useFactory: (configuration: ConfigType<typeof jwtConfig>) => ({
+        secret: configuration.accessTokenSecret,
+        signOptions: {
+          expiresIn: configuration.accessTokenTtl as StringValue,
+        },
+      }),
+    }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, BcryptService],
-  exports: [JwtModule],
+  providers: [AuthService, JwtStrategy, BcryptService], 
+  exports: [AuthService, JwtModule, JwtStrategy, BcryptService],
 })
-export class AuthModule {}
+export class AuthModule {}   
+
+
+
+
